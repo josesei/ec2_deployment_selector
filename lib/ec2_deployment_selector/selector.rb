@@ -95,11 +95,12 @@ module Ec2DeploymentSelector
 
     def validate_and_set_selected_instances(selected_instance_numbers)
       self.selected_instances = []
+      valid_selected_instances = []
 
       selected_instance_numbers.each_with_index do |instance_number|
         instance = instances[instance_number.to_i - 1]
         if instance.deployable?
-          self.selected_instances << instance
+          valid_selected_instances << instance
         else
           self.selected_instances = []
           puts "Instance #{instance_number} is not deployable"
@@ -107,6 +108,8 @@ module Ec2DeploymentSelector
           break
         end
       end
+
+      self.selected_instances = valid_selected_instances
     end
 
     def fetch_relevant_wrapped_instances
