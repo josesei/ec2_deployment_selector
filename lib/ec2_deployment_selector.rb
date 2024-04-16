@@ -1,0 +1,132 @@
+require "ec2_deployment_selector/version"
+require_relative "wrappers/ec2_instance_wrapper"
+
+require "aws-sdk-ec2"
+require "terminal-table"
+require "colorize"
+
+module Ec2DeploymentSelector
+  class Selector
+    APPLICATION_TAG_KEY = "Application"
+    DEFAULT_REGIONS = ["us-west-2", "us-east-2"]
+
+    def initialize(access_key_id:, secret_access_key:, application_name:, regions: DEFAULT_REGIONS)
+      self.access_key_id = access_key_id
+      self.secret_access_key = secret_access_key
+      self.application_name = application_name
+      self.regions = regions
+
+      self.instances = fetch_instances
+    end
+
+    def render_all_instances
+      title = "\u{1F680} Select #{application_name} Instances for Deployment \u{1F680}".colorize(mode: :bold)
+      render_table(instances, title, include_num_column: true)
+    end
+
+    def confirm_selected_instances
+      title = "\u{2753} Confirm Deployment to Instances \u{2753}".colorize(mode: :bold)
+      render_table(selected_instances, title, include_num_column: false)
+
+      puts "\u{2705} Press Y to confirm, or any other key to reselect:"
+      confirm = STDIN.gets
+
+      if confirm.strip.downcase != "y"
+        self.selected_instances = []
+        render_all_instances
+        prompt_select_instances
+        confirm_selected_instances
+      end
+    end
+
+    def prompt_select_instances
+      puts "\u{1F680} Select instances by Num to deploy to (comma separated), or enter for all deployable instances:"
+
+      selected_instance_numbers_input = STDIN.gets
+
+      selected_instance_numbers = if selected_instance_numbers_input.strip == ""
+        instances.select(&:deployable?).map(&:number)
+      else
+        selected_instance_numbers_input.split(",").map{ |n| n.strip.to_i }.uniq
+      end
+
+      validate_and_set_selected_instances(selected_instance_numbers)
+    end
+
+    def selected_instances_public_ips
+      selected_instances.map(&:public_ip_address)
+    end
+
+    private
+    attr_accessor :instances, :access_key_id, :secret_access_key, :application_name, :regions, :selected_instances
+
+    def render_table(instances, title, include_num_column:)
+      rows = instances.map do |instance|
+        row(instance, include_num_column)
+      end
+
+      headings = ["Name", "Instance Status", "Chef Status", "Layers", "Public IP", "Region"].map { |h| h.colorize(mode: :bold) }
+      headings = ["Num"] + headings if include_num_column
+      table = Terminal::Table.new(
+        title: title,
+        headings: headings,
+        rows: rows
+      )
+
+      puts table
+    end
+
+    def row(instance, include_num_column)
+      row = [
+        instance.name,
+        instance.state,
+        instance.chef_status,
+        instance.layers,
+        instance.public_ip_address,
+        instance.region
+      ]
+      if include_num_column
+        number = instance.deployable? ? instance.number : "-"
+        row = [number] + row
+      end
+
+      row
+    end
+
+    def validate_and_set_selected_instances(selected_instance_numbers)
+      selected_instances = []
+      selected_instance_numbers.each_with_index do |instance_number|
+        instance = instances[instance_number.to_i - 1]
+        if instance.deployable?
+          selected_instances << instance
+        else
+          puts "Instance #{instance_number} is not deployable"
+          prompt_select_instances
+          break
+        end
+      end
+
+      self.selected_instances = selected_instances
+    end
+
+    def fetch_instances
+      instances = []
+      regions.each do |region|
+        client = Aws::EC2::Resource.new(
+          access_key_id: access_key_id,
+          secret_access_key: secret_access_key,
+          region: region
+        )
+
+        instances += client.instances.select { |instance| instance.tags.detect { |tag| tag.key == APPLICATION_TAG_KEY && tag.value == application_name } }
+      end
+
+      instances = instances.each_with_index.map do |instance, idx|
+        number = idx + 1
+        Wrappers::Ec2Instance.new(instance, number)
+      end
+
+      self.instances = instances.sort_by { |instance| instance.deployable? ? 0 : 1 }
+    end
+  end
+end

@@ -1,0 +1,39 @@
+PATH
+  remote: .
+  specs:
+    ec2_deployment_selector (0.1.0)
+      aws-sdk-ec2
+      colorize
+      terminal-table
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    aws-eventstream (1.3.0)
+    aws-partitions (1.913.0)
+    aws-sdk-core (3.191.6)
+      aws-eventstream (~> 1, >= 1.3.0)
+      aws-partitions (~> 1, >= 1.651.0)
+      aws-sigv4 (~> 1.8)
+      jmespath (~> 1, >= 1.6.1)
+    aws-sdk-ec2 (1.448.1)
+      aws-sdk-core (~> 3, >= 3.191.0)
+      aws-sigv4 (~> 1.1)
+    aws-sigv4 (1.8.0)
+      aws-eventstream (~> 1, >= 1.0.2)
+    colorize (1.1.0)
+    jmespath (1.6.2)
+    rake (12.3.3)
+    terminal-table (3.0.2)
+      unicode-display_width (>= 1.1.1, < 3)
+    unicode-display_width (2.5.0)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  ec2_deployment_selector!
+  rake (~> 12.0)
+
+BUNDLED WITH
+   2.1.4
