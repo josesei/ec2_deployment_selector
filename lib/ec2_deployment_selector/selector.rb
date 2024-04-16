@@ -1,4 +1,4 @@
-require "wrappers/ec2_instance_wrapper"
+require_relative "wrappers/ec2_instance"
 
 require "aws-sdk-ec2"
 require "terminal-table"
