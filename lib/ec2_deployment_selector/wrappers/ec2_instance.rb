@@ -11,11 +11,10 @@ module Ec2DeploymentSelector
       NAME_TAG_KEY = "Name"
       LAYERS_TAG_KEY = "Layers"
 
-      attr_reader :number
+      attr_accessor :number
 
-      def initialize(instance, number)
+      def initialize(instance)
         self.object = instance
-        self.number = number
       end
 
       def public_ip_address
@@ -53,7 +52,6 @@ module Ec2DeploymentSelector
 
       private
       attr_accessor :object
-      attr_writer :number
 
       def chef_status_value
         @chef_status ||= tag_value(CHEF_STATUS_TAG_KEY) || "unknown"

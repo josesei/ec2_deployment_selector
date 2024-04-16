@@ -9,13 +9,14 @@ module Ec2DeploymentSelector
     APPLICATION_TAG_KEY = "Application"
     DEFAULT_REGIONS = ["us-west-2", "us-east-2"]
 
-    def initialize(access_key_id:, secret_access_key:, application_name:, regions: DEFAULT_REGIONS)
+    def initialize(access_key_id:, secret_access_key:, application_name:, regions: DEFAULT_REGIONS, filters: {})
       self.access_key_id = access_key_id
       self.secret_access_key = secret_access_key
       self.application_name = application_name
       self.regions = regions
+      self.filters = filters
 
-      self.instances = fetch_instances
+      self.instances = fetch_relevant_wrapped_instances
     end
 
     def render_all_instances
@@ -57,7 +58,7 @@ module Ec2DeploymentSelector
     end
 
     private
-    attr_accessor :instances, :access_key_id, :secret_access_key, :application_name, :regions, :selected_instances
+    attr_accessor :instances, :access_key_id, :secret_access_key, :application_name, :regions, :selected_instances, :filters
 
     def render_table(instances, title, include_num_column:)
       rows = instances.map do |instance|
@@ -93,22 +94,32 @@ module Ec2DeploymentSelector
     end
 
     def validate_and_set_selected_instances(selected_instance_numbers)
-      selected_instances = []
+      self.selected_instances = []
+
       selected_instance_numbers.each_with_index do |instance_number|
         instance = instances[instance_number.to_i - 1]
         if instance.deployable?
-          selected_instances << instance
+          self.selected_instances << instance
         else
+          self.selected_instances = []
           puts "Instance #{instance_number} is not deployable"
           prompt_select_instances
           break
         end
       end
-
-      self.selected_instances = selected_instances
     end
 
-    def fetch_instances
+    def fetch_relevant_wrapped_instances
+      instances = fetch_all_instances
+      instances = filter_instances(instances)
+      wrapped_instances = instances.map { |instance| Wrappers::Ec2Instance.new(instance) }
+      wrapped_instances.sort_by { |instance| instance.deployable? ? 0 : 1 }
+      wrapped_instances.each_with_index { |instance, index| instance.number = index + 1 }
+
+      self.instances = wrapped_instances
+    end
+
+    def fetch_all_instances
       instances = []
       regions.each do |region|
         client = Aws::EC2::Resource.new(
@@ -120,12 +131,21 @@ module Ec2DeploymentSelector
         instances += client.instances.select { |instance| instance.tags.detect { |tag| tag.key == APPLICATION_TAG_KEY && tag.value == application_name } }
       end
 
-      instances = instances.each_with_index.map do |instance, idx|
-        number = idx + 1
-        Wrappers::Ec2Instance.new(instance, number)
-      end
+      instances
+    end
 
-      self.instances = instances.sort_by { |instance| instance.deployable? ? 0 : 1 }
+    def filter_instances(instances)
+      instances.select do |instance|
+        filters.all? do |tag_key, tag_value|
+          instance.tags.any? do |tag|
+            normalized_tag_key(tag.key) == normalized_tag_key(tag_key) && tag.value == tag_value
+          end
+        end
+      end
+    end
+
+    def normalized_tag_key(tag_key)
+      tag_key.downcase.gsub(" ", "")
     end
   end
 end
