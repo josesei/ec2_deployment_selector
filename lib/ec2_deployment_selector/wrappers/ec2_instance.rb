@@ -11,7 +11,7 @@ module Ec2DeploymentSelector
       NAME_TAG_KEY = "Name"
       LAYERS_TAG_KEY = "Layers"
 
-      attr_accessor :number
+      attr_accessor :number, :object
 
       def initialize(instance)
         self.object = instance
@@ -19,6 +19,10 @@ module Ec2DeploymentSelector
 
       def public_ip_address
         object.public_ip_address
+      end
+
+      def instance_type
+        object.instance_type
       end
 
       def deployable?
@@ -49,9 +53,6 @@ module Ec2DeploymentSelector
           chef_status_value&.colorize(:red)
         end
       end
-
-      private
-      attr_accessor :object
 
       def chef_status_value
         @chef_status ||= tag_value(CHEF_STATUS_TAG_KEY) || "unknown"
