@@ -9,6 +9,8 @@ module Ec2DeploymentSelector
     APPLICATION_TAG_KEY = "Application"
     DEFAULT_REGIONS = ["us-west-2", "us-east-2"]
 
+    attr_accessor :selected_instances, :instances
+
     def initialize(access_key_id:, secret_access_key:, application_name:, regions: DEFAULT_REGIONS, filters: {})
       self.access_key_id = access_key_id
       self.secret_access_key = secret_access_key
@@ -58,7 +60,7 @@ module Ec2DeploymentSelector
     end
 
     private
-    attr_accessor :instances, :access_key_id, :secret_access_key, :application_name, :regions, :selected_instances, :filters
+    attr_accessor :access_key_id, :secret_access_key, :application_name, :regions, :filters
 
     def render_table(instances, title, include_num_column:)
       rows = instances.map do |instance|
@@ -116,7 +118,7 @@ module Ec2DeploymentSelector
       instances = fetch_all_instances
       instances = filter_instances(instances)
       wrapped_instances = instances.map { |instance| Wrappers::Ec2Instance.new(instance) }
-      wrapped_instances.sort_by { |instance| instance.deployable? ? 0 : 1 }
+      wrapped_instances.sort_by! { |instance| instance.deployable? ? 0 : 1 }
       wrapped_instances.each_with_index { |instance, index| instance.number = index + 1 }
 
       self.instances = wrapped_instances
