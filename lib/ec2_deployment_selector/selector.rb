@@ -47,10 +47,10 @@ module Ec2DeploymentSelector
       selected_instance_numbers_input = ENV["NON_INTERACTIVE"] == "true" ? "" : STDIN.gets
 
       selected_instance_numbers = if selected_instance_numbers_input.strip == ""
-                                    instances.select(&:deployable?).map(&:number)
-                                  else
-                                    selected_instance_numbers_input.split(",").map{ |n| n.strip.to_i }.uniq
-                                  end
+        instances.select(&:deployable?).map(&:number)
+      else
+        selected_instance_numbers_input.split(",").map{ |n| n.strip.to_i }.uniq
+      end
 
       validate_and_set_selected_instances(selected_instance_numbers)
     end
